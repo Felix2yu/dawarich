@@ -20,6 +20,7 @@ jobs:
       is_prerelease: ${{ steps.meta.outputs.is_prerelease }}
       platforms: ${{ steps.meta.outputs.platforms }}
       matrix: ${{ steps.meta.outputs.matrix }}
+      ghcr_image: ${{ steps.meta.outputs.ghcr_image }}
     steps:
       - name: Compute version and platforms
         id: meta
@@ -34,17 +35,23 @@ jobs:
           fi
 
           IS_PRERELEASE="${{ github.event.release.prerelease }}"
-          PLATFORMS="linux/amd64,linux/arm64,linux/arm/v7"
-          MATRIX='{"include":[{"platform":"linux/amd64","runner":"ubuntu-22.04"},{"platform":"linux/arm64","runner":"ubuntu-22.04-arm"},{"platform":"linux/arm/v7","runner":"ubuntu-22.04-arm"}]}'
+          PLATFORMS="linux/amd64,linux/arm64"
+          MATRIX='{"include":[{"platform":"linux/amd64","runner":"ubuntu-22.04"},{"platform":"linux/arm64","runner":"ubuntu-22.04-arm"}]}'
+
+          # GitHub Container Registry requires lowercase image names; the
+          # GitHub username may contain uppercase (e.g. Felix2yu -> felix2yu).
+          GHCR_IMAGE="ghcr.io/${GITHUB_REPOSITORY_OWNER,,}/dawarich"
 
           echo "version=${VERSION}" >> $GITHUB_OUTPUT
           echo "is_prerelease=${IS_PRERELEASE}" >> $GITHUB_OUTPUT
           echo "platforms=${PLATFORMS}" >> $GITHUB_OUTPUT
           echo "matrix=${MATRIX}" >> $GITHUB_OUTPUT
+          echo "ghcr_image=${GHCR_IMAGE}" >> $GITHUB_OUTPUT
 
   build-and-push-docker:
     permissions:
       contents: read
+      packages: write
     needs: prepare
     strategy:
       fail-fast: false
@@ -55,13 +62,6 @@ jobs:
         uses: actions/checkout@v7
         with:
           ref: ${{ github.event.inputs.branch || github.ref_name }}
-
-      # QEMU only needed for arm/v7 (armv7 emulated on aarch64 runner)
-      - name: Set up QEMU
-        if: matrix.platform == 'linux/arm/v7'
-        uses: docker/setup-qemu-action@v4
-        with:
-          platforms: linux/arm/v7
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v4
@@ -81,13 +81,14 @@ jobs:
         id: meta
         uses: docker/metadata-action@v6
         with:
-          images: ${{ secrets.DOCKERHUB_USERNAME }}/dawarich
+          images: ${{ needs.prepare.outputs.ghcr_image }}
 
-      - name: Login to Docker Hub
+      - name: Login to GitHub Container Registry
         uses: docker/login-action@v4.2.0
         with:
-          username: ${{ secrets.DOCKERHUB_USERNAME }}
-          password: ${{ secrets.DOCKERHUB_TOKEN }}
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Prepare platform pair
         id: platform
@@ -102,7 +103,7 @@ jobs:
           context: .
           file: ./docker/Dockerfile
           platforms: ${{ matrix.platform }}
-          outputs: type=image,name=${{ secrets.DOCKERHUB_USERNAME }}/dawarich,push-by-digest=true,name-canonical=true,push=true
+          outputs: type=image,name=${{ needs.prepare.outputs.ghcr_image }},push-by-digest=true,name-canonical=true,push=true
           labels: ${{ steps.meta.outputs.labels }}
           cache-from: type=local,src=/tmp/.buildx-cache
           cache-to: type=local,dest=/tmp/.buildx-cache-new,mode=max
@@ -129,6 +130,7 @@ jobs:
   merge:
     permissions:
       contents: read
+      packages: write
     needs: [prepare, build-and-push-docker]
     runs-on: ubuntu-22.04
     steps:
@@ -137,11 +139,12 @@ jobs:
         with:
           ref: ${{ github.event.inputs.branch || github.ref_name }}
 
-      - name: Login to Docker Hub
+      - name: Login to GitHub Container Registry
         uses: docker/login-action@v4.2.0
         with:
-          username: ${{ secrets.DOCKERHUB_USERNAME }}
-          password: ${{ secrets.DOCKERHUB_TOKEN }}
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v4
@@ -156,7 +159,7 @@ jobs:
       - name: Build Docker tags
         id: docker_tags
         run: |
-          IMAGE="${{ secrets.DOCKERHUB_USERNAME }}/dawarich"
+          IMAGE="${{ needs.prepare.outputs.ghcr_image }}"
           VERSION="${{ needs.prepare.outputs.version }}"
           IS_PRERELEASE="${{ needs.prepare.outputs.is_prerelease }}"
 
@@ -181,7 +184,7 @@ jobs:
             TAG_ARGS="${TAG_ARGS} -t ${TAG}"
           done
 
-          SOURCES=$(printf "${{ secrets.DOCKERHUB_USERNAME }}/dawarich@sha256:%s " *)
+          SOURCES=$(printf "${{ needs.prepare.outputs.ghcr_image }}@sha256:%s " *)
 
           docker buildx imagetools create ${TAG_ARGS} ${SOURCES}
 
