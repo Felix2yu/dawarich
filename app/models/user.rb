@@ -132,8 +132,13 @@ class User < ApplicationRecord
     value = settings['locale']
     return unless value.is_a?(String)
 
-    locale = value.strip.downcase.to_sym
-    locale if I18n.available_locales.include?(locale)
+    locale = value.strip.to_sym
+    return locale if I18n.available_locales.include?(locale)
+
+    # Region-coded locales like `zh-CN` keep their uppercase region, so the
+    # exact symbol is tried first; a downcased match covers `FR` -> `fr`.
+    downcased = value.strip.downcase.to_sym
+    downcased if I18n.available_locales.include?(downcased)
   end
 
   def locale

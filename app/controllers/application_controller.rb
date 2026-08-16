@@ -222,8 +222,15 @@ status: :see_other
   end
 
   def supported_locale(value)
-    locale = value.to_s.downcase.to_sym
-    locale if I18n.available_locales.include?(locale)
+    return unless value
+
+    candidate = value.to_s.strip.to_sym
+    return candidate if I18n.available_locales.include?(candidate)
+
+    # Region-coded locales like `zh-CN` must keep their uppercase region, so the
+    # exact symbol is tried first; a plain downcased match covers `FR` -> `fr`.
+    downcased = value.to_s.strip.downcase.to_sym
+    downcased if I18n.available_locales.include?(downcased)
   end
 
   def locale_from_accept_language

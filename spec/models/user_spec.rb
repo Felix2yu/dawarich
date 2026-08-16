@@ -10,6 +10,12 @@ RSpec.describe User, type: :model do
       expect(user.preferred_locale).to eq(:fr)
     end
 
+    it 'reads a region-coded locale like zh-CN without downcasing the region' do
+      user = build(:user, settings: { 'locale' => 'zh-CN' })
+
+      expect(user.preferred_locale).to eq(:'zh-CN')
+    end
+
     it 'treats malformed and unsupported locale values as unset' do
       [false, 42, { 'language' => 'fr' }, %w[fr], 'xx'].each do |locale|
         user = build(:user, settings: { 'locale' => locale })
