@@ -875,6 +875,10 @@ zh-CN:
         allow_dragging_points_to_correct_their_position: "允许拖动点位以修正其位置。"
         editing_points_is_a_pro_feature_this_stays_on_for: "编辑点位为 Pro 版功能——仅在当前会话中保持开启，且在 Lite 套餐下移动不会被保存。"
         allow_dragging_points_to_correct_their_position_remembered_across_sessio: "允许拖动点位以修正其位置。跨会话记住此设置。"
+        tiled_rendering: "瓦片渲染"
+        beta: "测试版"
+        tiled_rendering_description: "平移地图时从矢量瓦片绘制点位，长日期范围仅加载视口内的数据。"
+        tiled_rendering_caveats: "密集区域会合并为带数量的标记——放大可查看单个点位。编辑不可用，实时轨迹可能延迟几分钟。"
         routes: "路线"
         show_connected_route_lines: "显示连接的路线"
         color_by_speed: "按速度着色"
@@ -3678,6 +3682,16 @@ zh-CN:
       show_all_days: "显示所有天数"
       collapse_all_days: "折叠所有日期"
     map:
+      tiled_rendering:
+        inactive_note:
+          one: "当 %{layers} 开启时不可用——该图层需要完整点位数据。"
+          other: "当 %{layers} 开启时不可用——这些图层需要完整点位数据。"
+        editing_unavailable: "瓦片渲染模式下不可用，矢量瓦片没有可拖动的点位"
+        failed: "无法加载地图瓦片。请尝试缩短日期范围，或在地图设置中关闭瓦片渲染。"
+        blockers:
+          routes: "路线"
+          fog: "战争迷雾"
+          scratch: "刮刮地图"
       places_layer: "地点图层"
       confirm_delete_point: "确定要删除这个点位吗？"
       confirm_delete_point_permanently: "Delete this point?
